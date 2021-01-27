@@ -147,7 +147,7 @@ Now you can load either of the bitstreams (run ONE of these):
 ```
 sudo fpga-load-local-image -S 0 -I agfi-095f5880469ff5b8e  # taxi
 OR
-sudo fpga-load-local-image -S 0 -I agfi-028fcd53df79020d9  # teratide going subsurface
+sudo fpga-load-local-image -S 0 -I agfi-028fcd53df79020d9  # teratide diving subsurface
 ```
 
 That should be everything. You don't have to clear again if you want to change
