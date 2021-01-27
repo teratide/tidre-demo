@@ -6,6 +6,9 @@
 #include <arrow/ipc/api.h>
 #include <arrow/io/api.h>
 
+#include "tidre.h"
+using Tidre = tidre::Tidre<8>;
+
 /**
  * Builds the schema that we expect for the input record batch.
  */
@@ -80,24 +83,44 @@ int main(int argc, char **argv) {
   const auto *values = reinterpret_cast<const uint8_t *>(array->value_data()->data());
   std::cout << "Loaded dataset with " << num_rows << " row(s) and " << num_bytes << " data byte(s)." << std::endl;
 
+  // Unfortunately, when you're loading record batch files, the buffer pointers
+  // are not aligned to 64 bytes. That slows down the DMA transfers by about a
+  // factor 4. The code below reallocates the buffers with proper alignment.
+  // You can easily get rid of this by changing the true to false. Note that
+  // when buffers are allocated by Arrow (versus being pointers to a mmap'd
+  // record batch file), the buffers will already be aligned from the start.
+  if (true) {
+    int32_t *aligned_offsets = nullptr;
+    const size_t offsets_size = (num_rows + 1) * sizeof(uint32_t);
+    posix_memalign(reinterpret_cast<void**>(&aligned_offsets), 64, offsets_size);
+    memcpy(aligned_offsets, offsets, offsets_size);
+    offsets = aligned_offsets;
+
+    uint8_t *aligned_values = nullptr;
+    const size_t values_size = num_bytes;
+    posix_memalign(reinterpret_cast<void**>(&aligned_values), 64, values_size);
+    memcpy(aligned_values, values, values_size);
+    values = aligned_values;
+  }
+
   // Make an output buffer that's large enough to handle the case where all
   // records match.
   uint32_t *matches = nullptr;
   const size_t matches_size = num_rows * sizeof(uint32_t);
-  posix_memalign(&matches, 64, matches_size);
+  posix_memalign(reinterpret_cast<void**>(&matches), 64, matches_size);
   size_t num_matches = 0;
 
   // Connect to the FPGA.
   std::shared_ptr<Tidre> t;
-  auto status = Tidre::Make(
+  auto tidre_status = Tidre::Make(
     &t, "aws",
     10, // Number of pipeline beats; tweakable, at least 1.
     8,  // Number of kernels to use; tweakable from 1 to 8.
     2,  // DDR bank to use for even beats, must be 2 or 3.
     3   // DDR bank to use for odd beats, must be 2 or 3.
   );
-  if (!status.ok()) {
-    std::cerr << "Could not connect to FPGA: " << status.message << std::endl;
+  if (!tidre_status.ok()) {
+    std::cerr << "Could not connect to FPGA: " << tidre_status.message << std::endl;
     return 1;
   }
 
@@ -105,13 +128,13 @@ int main(int argc, char **argv) {
   std::cout << "Starting FPGA run for " << num_rows << " rows..." << std::endl;
   size_t num_errors = 0;
   auto start = std::chrono::system_clock::now();
-  status = t->RunRaw(
+  tidre_status = t->RunRaw(
     offsets, values, num_rows, matches, matches_size, &num_matches, &num_errors,
     0   // Verbosity level; 0, 1, or 2.
   );
   auto end = std::chrono::system_clock::now();
-  if (!status.ok()) {
-    std::cerr << "Failed to run on FPGA: " << status.message << std::endl;
+  if (!tidre_status.ok()) {
+    std::cerr << "Failed to run on FPGA: " << tidre_status.message << std::endl;
     return 1;
   }
 
@@ -138,6 +161,7 @@ int main(int argc, char **argv) {
   if (!status.ok()) {
     std::cout << "Failed to write output record batch: " << status.message() << std::endl;
   }
+  std::cout << "Done!" << std::endl;
 
   return 0;
 }

@@ -75,7 +75,14 @@ cd ../../..
 
 Fletcher on its own has no platform support; support for specific FPGA
 platforms needs to be installed separately. The support library for AWS can be
-found at `fletcher-aws/runtime/runtime`. Again, just install normally.
+found at `fletcher-aws/runtime/runtime`. Before we can build that, however,
+we'll need some environment setup from AWS.
+
+```
+source fletcher-aws/aws-fpga/sdk_setup.sh
+```
+
+After that, just install normally.
 
 ```
 cd fletcher-aws/runtime/runtime
@@ -88,9 +95,20 @@ sudo ldconfig
 cd ../../../..
 ```
 
+In order to communicate with the FPGA, we'll also need the XDMA driver. It can
+be installed as follows.
+
+```
+cd fletcher-aws/aws-fpga/sdk/linux_kernel_drivers/xdma
+make -j
+sudo make install
+cd ../../../../..
+```
+
 For the data generator, we'll also need some Python dependencies.
 
 ```
+sudo pip3 install --upgrade pip
 sudo pip3 install pyarrow==1.0.1 rstr==2.2.6
 ```
 
@@ -144,7 +162,7 @@ root of the tidre-demo repository.
 ```
 mkdir -p build
 cd build
-cmake3 ..
+cmake3 .. -DCMAKE_INSTALL_PREFIX=/usr
 make
 sudo make install
 cd ..
@@ -153,5 +171,5 @@ cd ..
 You can then run the application as follows.
 
 ```
-tidre-test input.rb output.rb
+sudo tidre-demo input.rb output.rb
 ```
