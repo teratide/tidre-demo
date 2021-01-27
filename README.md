@@ -30,11 +30,11 @@ to start the process. If the link is dead, just look for the "launch instance"
 button on your EC2 dashboard. Keep in mind that not all regions have F1
 instances!
 
-In step 1 (AMI selection), look for AWS' FPGA Developer AMI on the marketplace.
-We've tested this with version 1.9.1. In step 2 (instance type), select
-`f1.2xlarge`. In step 4 (storage), you can get rid of the `/dev/sdb` drive or
-select "delete on termination" if you like; we won't be using that part of the
-image.
+In step 1 (AMI selection), look for AWS' CentOS-based FPGA Developer AMI on the
+marketplace. We've tested this with version 1.9.1. In step 2 (instance type),
+select `f1.2xlarge`. In step 4 (storage), you can get rid of the `/dev/sdb`
+drive or select "delete on termination" if you like; we won't be using that
+part of the image.
 
 For the remaining steps, this guide assumes you're SSH'd into your F1 instance.
 
@@ -121,7 +121,7 @@ outputs a record batch with a single `uint32` column.
 
 To get you going, an example data generator is provided as a Python script. By
 default it will generate a dataset with strings matching both the "taxi" and
-"Teratide going subsurface" regular expressions (with different frequencies),
+"Teratide diving subsurface" regular expressions (with different frequencies),
 about 1GB in size. You can run it as follows.
 
 ```
