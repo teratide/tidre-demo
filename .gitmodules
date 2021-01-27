@@ -1,0 +1,3 @@
+[submodule "fletcher-aws"]
+	path = fletcher-aws
+	url = https://github.com/abs-tudelft/fletcher-aws.git
