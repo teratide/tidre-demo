@@ -121,8 +121,6 @@ jobs:
       run: make -j package
     - id: deb
       run: echo "##[set-output name=name;]$(ls tidre-demo*.deb)"
-    - name: Install
-      run: sudo apt-get install -y ./${{ steps.deb.outputs.name }}
     - name: Upload deb
       uses: actions/upload-release-asset@v1
       if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
