@@ -1,0 +1,29 @@
+name: Test
+
+on:
+  push:
+    branches:
+    - develop
+  pull_request:
+
+env:
+  FLETCHER_VERSION: '0.19.0'
+
+jobs:
+  tidre:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Apache Arrow repository
+      run: |
+        wget https://apache.bintray.com/arrow/ubuntu/apache-arrow-archive-keyring-latest-focal.deb
+        sudo apt-get install -y ./apache-arrow-archive-keyring-latest-focal.deb
+        sudo apt-get update
+    - name: Install Fletcher
+      run: |
+        wget https://github.com/abs-tudelft/fletcher/releases/download/$FLETCHER_VERSION/fletcher_$FLETCHER_VERSION-ubuntu20.04_amd64.deb
+        sudo apt-get install -y ./fletcher_$FLETCHER_VERSION-ubuntu20.04_amd64.deb
+    - name: CMake
+      run: cmake .
+    - name: Build
+      run: make -j
