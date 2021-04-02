@@ -1,0 +1,135 @@
+name: Assets
+
+on:
+  release:
+    types:
+    - created
+  pull_request:
+
+env:
+  CMAKE_VERSION: '3.20.0'
+  FLETCHER_VERSION: '0.0.19'
+
+jobs:
+  archive:
+    name: Linux
+    runs-on: ubuntu-latest
+    container: centos:7
+    steps:
+    - name: Install dependencies
+      run: |
+        yum install -y epel-release
+        yum install -y curl make gcc-c++ rpm-build git
+    - name: Install CMake
+      run: curl -L https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz | tar xz --strip-components=1 -C /usr
+    - name: Install Apache Arrow repository
+      run: yum install -y https://apache.bintray.com/arrow/centos/7/apache-arrow-release-latest.rpm
+    - name: Install Fletcher
+      run: yum localinstall -y https://github.com/abs-tudelft/fletcher/releases/download/$FLETCHER_VERSION/fletcher-$FLETCHER_VERSION-1.el7.x86_64.rpm
+    - uses: actions/checkout@v2
+    - name: Package
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Release .
+        make -j package
+    - id: tarball
+      run: echo "##[set-output name=name;]$(ls tidre-demo*.tar.gz)"
+    - name: Install
+      run: tar xvfz ./${{ steps.tarball.outputs.name }} -C /usr
+    - name: Upload tarball
+      uses: actions/upload-release-asset@v1
+      if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ steps.tarball.outputs.name }}
+        asset_name: ${{ steps.tarball.outputs.name }}
+        asset_content_type: application/octet-stream
+
+  centos:
+    name: CentOS
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+        - 7
+        - 8
+    container: centos:${{ matrix.version }}
+    steps:
+    - name: Install dependencies
+      run: |
+        yum install -y epel-release
+        yum install -y curl make rpm-build gcc-c++ git
+    - name: Install CMake
+      run: curl -L https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz | tar xz --strip-components=1 -C /usr
+    - name: Install Apache Arrow repository
+      if: ${{ matrix.version == '7' }}
+      run: yum install -y https://apache.bintray.com/arrow/centos/7/apache-arrow-release-latest.rpm
+    - name: Install Apache Arrow
+      if: ${{ matrix.version == '8' }}
+      run: |
+        dnf install -y https://apache.bintray.com/arrow/centos/8/apache-arrow-release-latest.rpm
+        dnf config-manager --set-enabled epel || :
+        dnf config-manager --set-enabled powertools || :
+        dnf config-manager --set-enabled codeready-builder-for-rhel-8-rhui-rpms || :
+        subscription-manager repos --enable codeready-builder-for-rhel-8-$(arch)-rpms || :
+    - name: Install Fletcher
+      run: |
+        yum localinstall -y https://github.com/abs-tudelft/fletcher/releases/download/$FLETCHER_VERSION/fletcher-$FLETCHER_VERSION-1.el$(cut -d: -f5 /etc/system-release-cpe | cut -d. -f1).x86_64.rpm
+    - uses: actions/checkout@v2
+    - name: Package
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Release .
+        make -j package
+    - id: rpm
+      run: echo "##[set-output name=name;]$(ls tidre-demo*.rpm)"
+    - name: Install
+      run: yum localinstall -y ./${{ steps.rpm.outputs.name }}
+    - name: Upload rpm
+      uses: actions/upload-release-asset@v1
+      if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ steps.rpm.outputs.name }}
+        asset_name: ${{ steps.rpm.outputs.name }}
+        asset_content_type: application/octet-stream
+  
+  ubuntu:
+    name: Ubuntu
+    strategy:
+      matrix:
+        version:
+        - 18.04
+        - 20.04
+    runs-on: ubuntu-${{ matrix.version }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Apache Arrow repository
+      run: |
+        wget https://apache.bintray.com/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
+        sudo apt-get install -y ./apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
+        sudo apt-get update
+    - name: Install Fletcher
+      run: |
+        wget https://github.com/abs-tudelft/fletcher/releases/download/$FLETCHER_VERSION/fletcher_$FLETCHER_VERSION-ubuntu${{ matrix.version }}_amd64.deb
+        sudo apt-get install -y ./fletcher_$FLETCHER_VERSION-ubuntu${{ matrix.version }}_amd64.deb
+    - name: Configure
+      run: cmake -DCMAKE_BUILD_TYPE=Release .
+    - name: Package
+      run: make -j package
+    - id: deb
+      run: echo "##[set-output name=name;]$(ls tidre-demo*.deb)"
+    - name: Install
+      run: sudo apt-get install -y ./${{ steps.deb.outputs.name }}
+    - name: Upload deb
+      uses: actions/upload-release-asset@v1
+      if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ steps.deb.outputs.name }}
+        asset_name: ${{ steps.deb.outputs.name }}
+        asset_content_type: application/octet-stream
